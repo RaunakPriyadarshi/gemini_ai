@@ -1,64 +1,74 @@
 import os
 import json
+import io
 from PIL import Image
-
 import google.generativeai as genai
 
-# working directory path
+# Working directory path
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
-# path of config_data file
-config_file_path = f"{working_dir}/config.json"
-config_data = json.load(open("config.json"))
+# Path of config_data file
+config_file_path = os.path.join(working_dir, "config.json")
 
-# loading the GOOGLE_API_KEY
-GOOGLE_API_KEY = config_data["GOOGLE_API_KEY"]
+# Load configuration data
+with open(config_file_path, "r") as config_file:
+    config_data = json.load(config_file)
 
-# configuring google.generativeai with API key
+# Load the GOOGLE API key
+GOOGLE_API_KEY = config_data.get("GOOGLE_API_KEY")
+
+# Configure Google Generative AI API
 genai.configure(api_key=GOOGLE_API_KEY)
 
 
 def load_gemini_pro_model():
-    gemini_pro_model = genai.GenerativeModel("gemini-pro")
-    return gemini_pro_model
+    """Load the Gemini Pro text model."""
+    return genai.GenerativeModel("gemini-pro")
 
 
-# get response from Gemini-Pro-Vision model - image/text to text
 def gemini_pro_vision_response(prompt, image):
-    gemini_pro_vision_model = genai.GenerativeModel("gemini-pro-vision")
-    response = gemini_pro_vision_model.generate_content([prompt, image])
-    result = response.text
-    return result
+    """Generate a caption for an image using Gemini API."""
+    
+    # Convert PIL Image to bytes
+    if isinstance(image, Image.Image):
+        image_bytes_io = io.BytesIO()
+        image.save(image_bytes_io, format="PNG")
+        image_bytes = image_bytes_io.getvalue()
+    elif isinstance(image, str):  # If it's a file path, read it
+        with open(image, "rb") as img_file:
+            image_bytes = img_file.read()
+    else:
+        raise ValueError("Invalid image input. Provide a file path or PIL image object.")
+
+    # Initialize Gemini model (use gemini-1.5 models instead of gemini-pro-vision)
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+
+    # Convert image bytes to Google AI-compatible format
+    image_parts = {
+        "mime_type": "image/png",
+        "data": image_bytes
+    }
+
+    # Get response from Gemini
+    response = gemini_model.generate_content([prompt, image_parts])
+
+    return response.text if response else "No response received."
 
 
-# get response from embeddings model - text to embeddings
 def embeddings_model_response(input_text):
+    """Get text embeddings for retrieval tasks."""
     embedding_model = "models/embedding-001"
-    embedding = genai.embed_content(model=embedding_model,
-                                    content=input_text,
-                                    task_type="retrieval_document")
-    embedding_list = embedding["embedding"]
-    return embedding_list
+    embedding = genai.embed_content(
+        model=embedding_model,
+        content=input_text,
+        task_type="retrieval_document"
+    )
+    return embedding.get("embedding", [])
 
 
-# get response from Gemini-Pro model - text to text
 def gemini_pro_response(user_prompt):
-    gemini_pro_model = genai.GenerativeModel("gemini-pro")
-    response = gemini_pro_model.generate_content(user_prompt)
-    result = response.text
-    return result
-
-
-# result = gemini_pro_response("What is Machine Learning")
-# print(result)
-# print("-"*50)
-#
-#
-# image = Image.open("test_image.png")
-# result = gemini_pro_vision_response("Write a short caption for this image", image)
-# print(result)
-# print("-"*50)
-#
-#
-# result = embeddings_model_response("Machine Learning is a subset of Artificial Intelligence")
-# print(result)
+    """Generate a text response using Gemini Pro."""
+    gemini_model = genai.GenerativeModel("gemini-pro")
+    response = gemini_model.generate_content(user_prompt)
+    
+    return response.text if response else "No response received."

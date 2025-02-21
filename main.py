@@ -12,9 +12,10 @@ from gemini_utility import (load_gemini_pro_model,
 
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
+#setting up page configuration.
 st.set_page_config(
     page_title="Gemini AI",
-    page_icon="🧠",
+    page_icon="🧠",#an icon 
     layout="centered",
 )
 
